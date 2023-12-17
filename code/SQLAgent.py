@@ -10,21 +10,27 @@ from datetime import date
 import os
 from langchain.tools.render import format_tool_to_openai_function
 from pydantic import BaseModel, Field
+from astropy.io import ascii
+import numpy as np
+import ast
 
 db = SQLDatabase.from_uri("sqlite:////Users/alexgagliano/Documents/Research/LLMs/data/2021mwb.db")
 
-#class PhaseInput(BaseModel):#
-#    obsMJD: float = Field(description="The MJD date of an observation.")
-
-@tool("getPhase")#, args_schema=PhaseInput)
+@tool
 def getPhase(obsMJD: float) -> float:
     """Get the date of an observation relative to the current date."""
     t_mjd = Time(date.today().strftime("%Y-%m-%dT%H:%M:%S"), format='isot', scale='utc').mjd
     return t_mjd - float(obsMJD)
 
 @tool
-def savePhotometry(SNname: str) -> str:
+def savePhotometry(photometry: str) -> str:
     """Saves sql-returned photometry for a supernova for use later with light curve fitting."""
+    photList = ast.literal_eval(photometry)
+    photList = list(zip(*photList))
+    #assume AB mag for now - change later!
+    testList+ [('AB',)*len(testList)]
+    ascii.write(photList, 'tempFile.txt', comment=False, overwrite=True)
+    return 'Done.'
 
 @tool
 def fitGP_toPhotometry(SNname: str, redshift: float, extinction: float) -> float:
@@ -37,17 +43,19 @@ def fitGP_toPhotometry(SNname: str, redshift: float, extinction: float) -> float
 
     return t_mjd
 
-custom_tools = [getPhase]
+custom_tools = [getPhase, savePhotometry]
 
-toolkit = SQLDatabaseToolkit(db=db, llm=OpenAI(temperature=0))
+toolkit = SQLDatabaseToolkit(db=db, llm=Ollama(temperature=0))
 
 agent_executor = create_sql_agent(
-    llm=OpenAI(temperature=0),
+    llm=Ollama(temperature=0),
     toolkit=toolkit,
     verbose=True,
     agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
     extra_tools=custom_tools
 )
 
+#agent_executor.run("The data is photometry associated with a supernova in apparent magnitudes, and date in mjd. How many days ago was the brightest observation in the dataset, and in what filter?")
+testList = [(59406.217, 'g-ZTF', 19.712, 0.144, 'P48'), (59406.255, 'r-ZTF', 18.495, 0.054, 'P48')]
 
-agent_executor.run("The data is photometry associated with a supernova in apparent magnitudes, and date in mjd. How many days ago was the brightest observation in the dataset, and in what filter?")
+agent_executor.run("Please get all photometry within the last 3 days from the database and save it to a file.")
