@@ -9,30 +9,35 @@ from astropy.time import Time
 from datetime import date
 import os
 from langchain.tools.render import format_tool_to_openai_function
+from pydantic import BaseModel, Field
 
 db = SQLDatabase.from_uri("sqlite:////Users/alexgagliano/Documents/Research/LLMs/data/2021mwb.db")
 
+#class PhaseInput(BaseModel):#
+#    obsMJD: float = Field(description="The MJD date of an observation.")
+
+@tool("getPhase")#, args_schema=PhaseInput)
+def getPhase(obsMJD: float) -> float:
+    """Get the date of an observation relative to the current date."""
+    t_mjd = Time(date.today().strftime("%Y-%m-%dT%H:%M:%S"), format='isot', scale='utc').mjd
+    return t_mjd - float(obsMJD)
+
 @tool
-def current_date_in_mjd() -> float:
-    """Computes the current mjd date."""
-    t_mjd = Time(date.today().strftime("%Y-%m-%dT%H:%M:%S"), format='isot', scalfe='utc').mjd
+def savePhotometry(SNname: str) -> str:
+    """Saves sql-returned photometry for a supernova for use later with light curve fitting."""
+
+@tool
+def fitGP_toPhotometry(SNname: str, redshift: float, extinction: float) -> float:
+    """Fits a gaussian process model to a set of photometry."""
+
+    fn_call = "extrabol '%s.dat' -z %.3f -verbose --ebv %.2f"%(SNname, redshift, extinction)
+    os.system(fn_call)
+
+    #read in output
 
     return t_mjd
 
-@tool
-def savePhotometry(SNname) -> string:
-    """Saves ."""
-
-@tool
-def fitGP_toPhotometry(SNname) -> float:
-    """Returns the length of a word."""
-
-    t_mjd = Time(date.today().strftime("%Y-%m-%dT%H:%M:%S"), format='isot', scalfe='utc').mjd
-
-    return t_mjd
-
-#llm_with_tools = llm.bind(functions=[SQLDatabaseToolkit, current_date_in_mjd])
-custom_tools = [current_date_in_mjd]
+custom_tools = [getPhase]
 
 toolkit = SQLDatabaseToolkit(db=db, llm=OpenAI(temperature=0))
 
@@ -45,4 +50,4 @@ agent_executor = create_sql_agent(
 )
 
 
-agent_executor.run("The data is photometry associated with a supernova in apparent magnitudes, and date in mjd. How many days ago relative to today was the brightest observation in the dataset, and in what filter?"%t_mjd)
+agent_executor.run("The data is photometry associated with a supernova in apparent magnitudes, and date in mjd. How many days ago was the brightest observation in the dataset, and in what filter?")
