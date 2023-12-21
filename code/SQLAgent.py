@@ -2,8 +2,6 @@ from langchain.llms import OpenAI, Ollama, HuggingFaceHub, Replicate
 from langchain.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
-from langchain.agents import create_sql_agent
-from langchain.agents.agent_types import AgentType
 from langchain.agents import tool, Tool
 from astropy.time import Time
 from datetime import date
@@ -20,14 +18,16 @@ from langchain.llms import LlamaCpp
 import pandas as pd
 from langchain.prompts.prompt import PromptTemplate
 from langchain.agents import AgentType, create_sql_agent
-from langchain.agents.agent_toolkits import SQLDatabaseToolkit
 from langchain.chat_models import ChatOpenAI
-from langchain.utilities import SQLDatabase
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema import Document
 from langchain.vectorstores import FAISS
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.memory import ConversationBufferMemory
+
+#export LANGCHAIN_TRACING_V2="true"
+#export LANGCHAIN_API_KEY="<your-api-key>"
 
 db = SQLDatabase.from_uri("sqlite:////Users/alexgagliano/Documents/Research/LLMs/YSEPZ_sqlFiles/miniYSEPZ_noNull.db")
 
@@ -61,6 +61,8 @@ few_shots = {
 "Return the properties of all stripped envelope supernovae (SESNe) discovered in the last 2 years.":"SELECT t.* FROM YSE_App_transient t AND DATEDIFF(curdate(),t.disc_date) < 730 AND t.TNS_spec_class IN ('SN Ic', 'SN Ibc', 'SN Ib', 'SN IIb');",
 
 "Get all photometry for the transient SN 2019ehk.":"SELECT DISTINCT pd.obs_date AS `observed_date`, TO_DAYS(pd.obs_date) AS `count_date`, pb.name AS `filter`, pd.mag, pd.mag_err,t.mw_ebv, pd.forced FROM YSE_App_transient t INNER JOIN YSE_App_transientphotometry tp ON tp.transient_id = t.id INNER JOIN YSE_App_transientphotdata pd ON pd.photometry_id = tp.id INNER JOIN YSE_App_photometricband pb ON pb.id = pd.band_id WHERE t.name LIKE '2019ehk';",
+
+"Which supernovae have photometry in the database?":"SELECT DISTINCT t.name FROM YSE_App_transient t INNER JOIN YSE_App_transientphotometry tp ON tp.transient_id = t.id INNER JOIN YSE_App_transientphotdata pd ON pd.photometry_id = tp.id;",
 
 "Get the properties of all transients discovered in the last 40 days.":"SELECT DISTINCT	t.name, t.ra,t.dec, pd.obs_date AS `observed_date`, TO_DAYS(pd.obs_date) AS `count_date`, pb.name AS `filter`, pd.mag, pd.mag_err,t.mw_ebv, og.name AS `group_name`, pd.forced FROM YSE_App_transient t INNER JOIN YSE_App_observationgroup og ON og.id = t.obs_group_id INNER JOIN YSE_App_transientphotometry tp ON tp.transient_id = t.id INNER JOIN YSE_App_transientphotdata pd ON pd.photometry_id = tp.id INNER JOIN YSE_App_photometricband pb ON pb.id = pd.band_id WHERE t.disc_date IS NOT NULL AND TO_DAYS(CURDATE())- TO_DAYS(t.disc_date) < 40 ORDER BY t.name ASC, TO_DAYS(pd.obs_date) DESC;",
 
@@ -123,8 +125,34 @@ retriever_tool = create_retriever_tool(
     retriever, name="sql_get_similar_examples", description=tool_description
 )
 
+@tool
+def make_plot(plot_type: str, x_name: str, x_values: list, y_name: str, y_values: list) -> None:
+    """
+    A function for plotting the results of a SQL query.
+    Input: plot_type (string): Can be one of 'histogram' or 'scatter plot'.
+    Input: x_name (string): the name of the variable associated with x_values.
+    Input: x_values (array): the x-values for the plot. If plot_type == 'histogram',
+            x_values contain the data for the plot.
+    Input: y_name (string): the name of the variable associated with y_values.
+    Input: y_values (array): the y-values for the plot.
+    Input:
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    sns.set_context("poster")
+    if plot_type == 'histogram':
+        plt.hist(x_values)
+        plt.xlabel(x_name)
+    elif plot_type == 'scatter':
+        plt.plot(x_values, y_values, 'o-')
+        plt.xlabel(x_name)
+        plt.ylabel(y_name)
+    plt.show()
+
 toolkit = SQLDatabaseToolkit(db=db, llm=llm)
-custom_tool_list = [retriever_tool]
+custom_tool_list = [retriever_tool, make_plot]
 
 custom_suffix = """
 Limit 10 in the query always. Assume the words `transient` and `supernova` are interchangeable.
@@ -135,32 +163,31 @@ Otherwise, I can then look at the tables in the database to see what I can query
 Then I should query the schema of the most relevant tables.
 """
 
-
-from langchain.memory import ConversationBufferMemory
-
 memory = ConversationBufferMemory(memory_key="chat_history")
-
 
 agent = create_sql_agent(
     llm=ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0),
     toolkit=toolkit,
-    verbose=False,
+    verbose=True,
     agent_type=AgentType.OPENAI_FUNCTIONS,
     extra_tools=custom_tool_list,
     suffix=custom_suffix,
     max_iterations=3,
     memory=memory,
-    use_query_checker=True
+    return_intermediate_steps=True,
 )
 
+TEMPLATE = """Given an input question, create a syntactically correct SQL query to run, then look at the results of the query.
+You are bad at writing code; if the user needs you to write code for calculating or plotting, you must look for functions in your toolkit to do so.
+If the user asks for a `light curve`, you will need to first get its photometry and then create a scatter plot with MJD date as x_values and mag as y_values.
+Input data into all python functions as arrays. Execute all functions without asking permission first.
+Format your output as below, as succinctly as possible:
 
-TEMPLATE = """Given an input question, create a syntactically correct SQL query to run, then look at the results of the query and return the answer.
-Use the following format:
-
-Question: "Question here"
-SQLQuery: "SQL Query to run"
-SQLResult: "Result of the SQLQuery"
-Answer: "Final answer here"
+"Question": "Question here"
+"SQLQuery": "SQL Query to run"
+"SQLResult": "Result of the SQLQuery"
+"Code": "Any code needed"
+"Answer": "The final answer to the input query".
 
 Question: {input}"""
 
@@ -169,11 +196,15 @@ CUSTOM_PROMPT = PromptTemplate(
     template=TEMPLATE,
 )
 
-
 #prompt = CUSTOM_PROMPT.format(input='Give me the names of all supernovae spectroscopically classified as a Type SN Ia.')
-prompt = CUSTOM_PROMPT.format(input='Give me the names of all supernovae with host galaxy information.')
+#prompt = CUSTOM_PROMPT.format(input='Give me the names of all supernovae with host galaxy information.')
 #prompt = CUSTOM_PROMPT.format(input='Give me the names of all transients tagged as `Interesting`.')
 #prompt = CUSTOM_PROMPT.format(input='Give me the names of all transients with a status of `Watch`.')
 #prompt = CUSTOM_PROMPT.format(input="Return the photometry for supernova 13EYSEbpq.")
+#prompt = CUSTOM_PROMPT.format(input='Give me the redshifts of all transients in the database.')
+#prompt = CUSTOM_PROMPT.format(input='Create a histogram of all redshifts of all transients in the database where redshift > 0.')
+#prompt = CUSTOM_PROMPT.format(input='Plot a light curve for SN 2023yjp.')
+prompt = CUSTOM_PROMPT.format(input='What supernovae have photometry in the database?')
 
 result = agent.run(input=prompt)
+result
