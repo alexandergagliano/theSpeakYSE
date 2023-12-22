@@ -24,8 +24,6 @@ from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.memory import ConversationBufferMemory
 
-#os.environ['OPENAI_API_KEY']='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'
-
 n_gpu_layers = 1
 n_batch = 512
 callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
