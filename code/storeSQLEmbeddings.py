@@ -1,9 +1,6 @@
 from langchain.schema import Document
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.embeddings import LlamaCppEmbeddings
-from langchain.llms import LlamaCpp
 from langchain.vectorstores import FAISS
+from langchain.embeddings import OpenAIEmbeddings
 
 few_shots = {
 "Give me spectroscopically-classified supernovae within z<0.015.":"SELECT t.*, h.* FROM YSE_App_transient t INNER JOIN YSE_App_host h ON h.id = t.host_id WHERE t.host_id IS NOT NULL AND (t.redshift OR h.redshift) IS NOT NULL AND COALESCE(t.redshift, h.redshift) < 0.015 AND (t.TNS_spec_class like '%SN%');",
@@ -23,6 +20,10 @@ few_shots = {
 "Give me the names, coordinates, and spectroscopic class of all Southern-hemisphere (dec<-30 deg) transients.":"SELECT DISTINCT t.name, t.ra, t.dec, t.TNS_spec_class FROM YSE_App_transient t WHERE t.dec <= -30  AND (DATEDIFF(curdate(), t.disc_date) <= 5) ;",
 
 "How many spectroscopically-confirmed SNe Ia are in the database?":"SELECT COUNT(DISTINCT t.name) FROM YSE_App_transient t WHERE t.TNS_spec_class LIKE 'SN Ia';",
+
+"Which supernovae are spectroscopically-confirmed?":"SELECT t.* FROM YSE_App_transient t WHERE t.TNS_spec_class LIKE 'SN%';",
+
+"How far away is SN 2023bee?":"SELECT t.redshift FROM YSE_App_transient t WHERE t.name LIKE '2023bee';",
 
 "When did supernova 2022acjh have its max brightness (in phase and MJD/date) and in what filter?":"SELECT DISTINCT pd.obs_date AS `observed_date`, TO_DAYS(pd.obs_date)-TO_DAYS(t.disc_date), t.disc_date as `discovery_date`, pb.name AS `filter`, pd.mag, pd.mag_err,t.mw_ebv FROM YSE_App_transient t INNER JOIN YSE_App_transientphotometry tp ON tp.transient_id = t.id INNER JOIN YSE_App_transientphotdata pd ON pd.photometry_id = tp.id INNER JOIN YSE_App_photometricband pb ON pb.id = pd.band_id WHERE t.name LIKE '2022acjh' AND pd.mag IS NOT NULL AND pd.mag_err < 0.3 ORDER BY pd.mag ASC LIMIT 1;",
 
@@ -222,27 +223,25 @@ few_shots = {
 
 "Give me all spectroscopic classifications.":"SELECT t.TNS_spec_class FROM YSE_App_transient t WHERE t.TNS_spec_class IS NOT NULL;",
 
+"What classification does TNS give for 2023bee?":"SELECT DISTINCT t.name, t.TNS_spec_class FROM YSE_App_transient t WHERE t.name LIKE '2023bee';",
+
+"Get me the name of the closest spectroscopically-confirmed supernova discovered in 2023.":"SELECT DISTINCT t.name, t.TNS_spec_class, t.redshift FROM YSE_App_transient t WHERE t.TNS_spec_class IS NOT NULL AND t.redshift IS NOT NULL AND t.name like '2023%' ORDER BY t.redshift ASC LIMIT 1;",
+
+"What is the closest transient in the database?":"SELECT t.name, t.TNS_spec_class, t.redshift FROM YSE_App_transient t WHERE t.redshift IS NOT NULL ORDER BY t.redshift ASC LIMIT 1;",
+
+"What is the most local transient?":"SELECT t.name, t.TNS_spec_class, t.redshift FROM YSE_App_transient t WHERE t.redshift IS NOT NULL ORDER BY t.redshift ASC LIMIT 1;",
+
+"Which transient is nearest??":"SELECT t.name, t.TNS_spec_class, t.redshift FROM YSE_App_transient t WHERE t.redshift IS NOT NULL ORDER BY t.redshift ASC LIMIT 1;",
+
+"Get me the name of the most distant (or furthest) supernova in the database.":"SELECT DISTINCT t.name, t.redshift FROM YSE_App_transient t WHERE (t.redshift IS NOT NULL) ORDER BY t.redshift DESC LIMIT 1;",
+
+"What does the Transient Name Server classify 2023bee as?":"SELECT DISTINCT t.name, t.TNS_spec_class FROM YSE_App_transient t WHERE t.name LIKE '2023bee';",
+
 "Get the spectroscopic classifications of 10 randomly-selected transients in the database.":"SELECT DISTINCT t.name, t.TNS_spec_class FROM YSE_App_transient t WHERE t.TNS_spec_class IS NOT NULL ORDER BY RAND() LIMIT 10;",
 
 "What is the name and coordinates of the galaxy that hosted supernova 2023bee?":"SELECT h.name, h.ra, h.`dec` FROM YSE_App_host h INNER JOIN YSE_App_transient t ON t.host_id = h.id WHERE t.name LIKE '2023bee';"}
 
-n_gpu_layers = 1
-n_batch = 512
-callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-
-LLAMA_MODEL_PATH = "/Users/alexgagliano/Documents/Research/LLMs/Models/llama-2-13b.Q5_K_M.gguf"
-
-llm = LlamaCpp(
-    model_path=LLAMA_MODEL_PATH,
-    n_gpu_layers=n_gpu_layers,
-    n_batch=n_batch,
-    n_ctx=2048,
-    f16_kv=True,  # MUST set to True, otherwise you will run into problem after a couple of calls
-    callback_manager=callback_manager,
-    verbose=True,
-)
-
-embedder = LlamaCppEmbeddings(model_path=LLAMA_MODEL_PATH)
+embedder = OpenAIEmbeddings()
 
 few_shot_docs = [
     Document(page_content=question, metadata={"sql_query": few_shots[question]})
@@ -252,4 +251,4 @@ few_shot_docs = [
 len(few_shot_docs)
 
 vector_db = FAISS.from_documents(few_shot_docs, embedder)
-vector_db.save_local("/Users/alexgagliano/Documents/Research/LLMs/theSpeakYSE/data/YSEPZQueries_Faiss_index")
+vector_db.save_local("/home/gaglian2/theSpeakYSE/data/YSEPZQueries_index_OAI")

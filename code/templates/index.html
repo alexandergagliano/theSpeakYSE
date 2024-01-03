@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The SpeakYSE</title>
+    <style>
+        body {
+            font-family: Roboto, sans-serif;
+            background-color: #33343F;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            margin: 0;
+        }
+
+	.clearfix::after {
+         content: "";
+         clear: both;
+         display: table;
+         }
+
+.container {
+  width: 100%; /* Full width of the parent element */
+  max-width: 800px; /* Fixed maximum width, adjust this value as needed */
+  margin: 0 auto; /* Center the container */
+  padding: 0 20px; /* Add padding inside the container */
+  box-sizing: border-box; /* Include padding in the width */
+  overflow-x: hidden; /* Hide horizontal overflow */
+}
+
+.messages-container {
+  width: 100%; /* Full width of the container */
+  max-height: 350px; /* Set a maximum height for the scrolling */
+  overflow-y: auto; /* Allow vertical scrolling */
+  word-wrap: break-word; /* Break long words to prevent horizontal overflow */
+  box-sizing: border-box; /* Include padding and border in the width and height */
+}
+
+#footer {
+    position: fixed;
+    bottom: 0;
+    text-align: center;
+    width: 100%;
+    background-color: #333; /* Background color of the footer */
+    color: white; /* Text color for the footer */
+    padding: 10px; /* Adjust this as needed */
+}
+
+.input-container {
+  /* Center the input container */
+  /*width: fit-content;*/
+  display: flex; 
+  position: fixed;
+    justify-content: center; /* Aligns children (input and button) horizontally in the center */
+    align-items: center; /* Aligns children vertically in the center */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  margin: 0 auto;
+  padding: 5px; /* You can adjust this as needed */
+}
+
+#statusText {
+  display: flex;
+  position: fixed;
+  justify-content: center;
+  align-items: center;
+  bottom: 65px; /* Adjust the distance from the bottom as needed */
+  left: 0;
+  width: 100%;
+  margin: 0 auto; /* Center horizontally */
+  padding: 20px; /* Adjust this as needed */
+}
+
+
+/* Style the send button */
+.modern-button {
+    padding: 5px 10px;
+    background-color: #5C282B; 
+    color: white;
+    margin-left: 10px;
+    font-size: 14px;
+    border: 1px solid #C5C5C5; /* Add a border with a color */
+    border-radius: 5px; /* Round the corners */
+    outline: none; /* Remove the default focus outline */
+    outline: none; /* Remove the default focus outline */
+    margin-bottom: 30px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.3s;
+    height: 42px; /* Adjust the height to match the text box */
+    position: relative;
+    overflow: hidden;
+}
+
+.modern-button:hover {
+    background-color: #5C1817; /* New button color on hover */
+}
+
+#textInput {
+    width: 70%; /* Or any percentage or fixed width */
+    height: 40px; /* Or any fixed height */
+    font-size: 14px; /* Larger font size for better readability */
+    color: white;
+    background-color: #33343F;
+    /* Add other styling as needed */
+}
+
+    #resetChatButton {
+        position: fixed;  /* Fixed positioning */
+        top: 0;          /* 0 pixels from the top */
+        left: 0;         /* 0 pixels from the left */
+        margin: 10px;
+        z-index: 1000;   /* Ensures it stays on top of other elements */
+    }
+
+        .user {
+            text-align: left;
+    float: right; /* Aligns incoming messages to the left */
+    clear: both; /* Prevents floating elements from affecting layout */
+    font-size: 14px;
+            background-color: #007bff; /* Blue for user messages */
+	    border-radius: 8px;
+            color: #fff; /* Text color for user messages */
+ box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .bot {
+            text-align: left;
+            background-color: #eee; /* Gray for bot messages */
+    float: left; /* Aligns incoming messages to the left */
+    font-size: 14px;
+    clear: both; /* Prevents floating elements from affecting layout */
+	    border-radius: 8px;
+ box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+	    font-family: 'Helvetica', sans-serif;
+        }
+
+  .message {
+    padding: 3px 15px; /* Reduced vertical padding (top & bottom) and kept horizontal padding */
+    display: inline-block; /* Makes the bubble only as wide as its content */
+    word-wrap: break-word;
+    border-radius: 15px;
+    //font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .chatbox {
+    display: flex;
+    flex-direction: column;
+    max-width: 600px;
+    margin-bottom: 10px; /* Keeps space between messages */
+    /* Additional styling for dynamic layout */
+  }
+        .message {
+            margin: 10px 0;
+        }
+
+.modern-button.loading {
+    background: url('static/eclipse_nobackground.gif') no-repeat center center;
+    background-size: contain; /* Adjust size to fit the button */
+    color: transparent; /* Hide the text */
+    pointer-events: none; /* Disable button clicks while loading */
+    /* Keep other button styles (like size, border, etc.) unchanged */
+}
+
+::placeholder {
+    color: #C5C5C5; /* Change the color to red */
+}
+
+.rounded-input {
+    padding: 0px 10px; /* Add padding for spacing */
+    margin-bottom: 30px;
+    border: 1px solid #C5C5C5; /* Add a border with a color */
+    border-radius: 5px; /* Round the corners */
+    outline: none; /* Remove the default focus outline */
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 style="color: white; font-size: 32px;">The SpeakYSE</h1>
+            <p style="color: gray; margin-bottom:10px;"><em>An interactive chat bot for the <a href='https://yse.ucsc.edu/' style='color: #0E7FAE;'>Young Supernova Experiment</a>.</em></p>
+            <img src="static/yse_colorblind.png" alt="YSEPZ-logo" height="105" width="110">
+        </div>
+	<div class="messages-container" id="chatbox" style="font-family: 'Roboto', sans-serif; padding: 10px; border-radius: 8px;">
+        <!-- Chat messages go here -->
+        </div>
+        <div class="input-area">
+            <div class="input-container">
+                <div id="statusText" style="display: none; color:gray;"><em>Thinking...</em></div>
+                <input  class="rounded-input" id="textInput" type="text" name="msg" placeholder="Ask a question about the data here." />
+                <button class='modern-button' id="sendButton" onclick="getBotResponse()">Send</button>
+                <img id="loading" src="static/eclipse_nobackground.gif" alt='Loading...' style="display:none; border: width: 20px; height: 20px;" />
+                </div>
+            </div>
+       </div>    
+   <button id="resetChatButton" class='modern-button' onclick="clearChatUI()">Reset Chat</button>
+ <div id="footer" style="color: grey; font-size: 0.7em;">
+                &copy; Alex Gagliano and Kaylee de Soto, 2023.
+ </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+var botMsgNum = 0;
+var usrMsgNum = 0;
+
+function scrollToBottom() {
+  const chatContainer = document.getElementById('messages-container');
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+async function getBotResponse(event) {
+    var rawText = $("#textInput").val();
+    usrMsgNum +=1;
+    var usrName = 'msgUsr'+usrMsgNum;
+    var currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Local time
+    var userHtml = '<div class="message user" id='+usrName+'><p><b>User: </b>' + rawText + '</p>'  +'</div>';
+    botMsgNum += 1;
+    var botName = "msgBot"+botMsgNum;
+    $("#textInput").val("");
+    $("#chatbox").append(userHtml);
+    document.getElementById(usrName).innerHTML += '<div class="timestamp" style="color:#eee; font-size:10px;">' + currentTime + '</div>';
+    document.getElementById("chatbox").scrollTop = document.getElementById("chatbox").scrollHeight;
+
+    $("#sendButton").addClass('loading');
+    $("#statusText").show();
+
+    event.preventDefault();
+
+    try {
+        const response = await fetch("/stream", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: rawText }),
+        });
+
+        const reader = response.body.getReader();
+        let chunks = "";
+
+        $("#chatbox").append('<div class="message bot" id='+botName+'></div>');
+
+        document.getElementById(botName).innerHTML = '<p></p>';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks += new TextDecoder().decode(value).replace(/\n/g, '<br>');
+            document.getElementById(botName).innerHTML = '<p><b>speakYSE:</b> ' + chunks + '</p>';
+            document.getElementById("chatbox").scrollTop = document.getElementById("chatbox").scrollHeight;
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+    }
+
+    var currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // Local time
+    document.getElementById(botName).innerHTML += '<div class="timestamp" style="color:gray; font-size:10px;">' + currentTime + '</div>';
+
+    $("#sendButton").removeClass('loading');
+    $("#statusText").hide();
+}
+
+$("#textInput").keypress(function (e) {
+    if (e.which == 13 && !$("#sendButton").hasClass("loading")) {
+        getBotResponse(e);
+    }
+});
+
+
+function clearChatUI() {
+    const userMessages = document.querySelectorAll('.message.user');
+    const aiMessages = document.querySelectorAll('.message.bot');
+
+
+    // Loop through the NodeList and remove each element
+    userMessages.forEach(function(message) {
+        message.remove();
+    });
+    aiMessages.forEach(function(message) {
+        message.remove();
+    });
+
+    // AJAX request to Flask route
+    fetch('/reset-chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log("Chat reset successful.");
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+
+}
+    </script>
+</body>
+</html>
+
