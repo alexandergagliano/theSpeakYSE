@@ -17,6 +17,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.schema import Document
 from langchain.vectorstores import FAISS
 import time
+from openai import OpenAI
 import sys
 import threading
 import queue
@@ -26,51 +27,59 @@ from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHan
 import traceback
 from langchain.embeddings import OpenAIEmbeddings
 
+#!pip install outlines
+
 app = Flask(__name__)
 embedder = OpenAIEmbeddings()
+client = OpenAI()
 
 db = SQLDatabase.from_uri("mysql+mysqlconnector://root:password@localhost/YSE?port=53306", sample_rows_in_table_info=0)
 vector_db = FAISS.load_local("/home/gaglian2/theSpeakYSE/data/YSEPZQueries_index_OAI", embedder)
-retriever = vector_db.as_retriever()
+query = "Do we have TESS data for SN 2020oi?"
+docs_and_scores = vector_db.similarity_search_with_score(query)
 
 tool_description = """
 This tool will help you understand similar examples to adapt them to the user question.
 Input to this tool should be the question to ask the SQL database.
 """
 
-retriever_tool = create_retriever_tool(
-    retriever, name="sql_get_similar_examples", description=tool_description
-)
-
-toolkit = SQLDatabaseToolkit(db=db, llm=ChatOpenAI(model_name="gpt-4", temperature=0.2, max_tokens=2500))
-
-custom_tool_list = [retriever_tool]
-
-custom_suffix = Path('custom_suffix.txt').read_text().replace('\n', '')
+custom_suffix = Path('custom_suffix_mod.txt').read_text().replace('\n', '')
 
 TEMPLATE = """You are a friendly SQL Agent for the database YSE-PZ.
-Given an input question, create a syntactically correct SQL query, then execute the query and return the result.
+Given an input question, create a syntactically correct SQL query for a database YSE-PZ. 
 
-Use the chat history below for additional context.
-If the SQL query returns 0 results or an error, you must state honestly that there are no results. 
-Assume the variable 'z' corresponds to redshift - you must select spectroscopic redshift from YSE_App_transient table if available, or the YSE_App_host photometric redshift (photo_z) value if not. Ignore all negative redshift values. Assume a supernova is only spectroscopically confirmed if t.TNS_spec_class starts with "SN". 
-If sorting by a property, you must only consider entries WHERE property IS NOT NULL. 
-For the number of days relative to today, use the commands DATEDIFF(), CURDATE(), and TO_DAYS().
-
-Chat history:
-{chat_history}
-
-Question: {input}
-Answer: 
+Here are a few examples: 
+{one_shot_one}
+{one_shot_two}
 """
 
 CUSTOM_PROMPT = PromptTemplate(
-    input_variables=["input", "chat_history"],
+    input_variables=["one_shot_one", "one_shot_two"],
     template=TEMPLATE,
 )
 
 # Initialize an empty list to store chat history
 chat_history = []
+
+
+system_prompt = CUSTOM_PROMPT.format(one_shot_one=docs_and_scores[0][0], one_shot_two=docs_and_scores[1][0])
+
+# start by just trying for a sql agent
+#sql_agent = ChatOpenAI(model_name="gpt-4", temperature=0.0, streaming=True, max_tokens=500)
+response = client.chat.completions.create(
+  max_tokens=300, temperature=0.0,
+  n=1,
+  model="gpt-3.5-turbo-1106",
+  messages=[{"role": "system", "content": system_prompt},{"role": "user", "content": query}]
+ )
+
+model = outlines.models.transformers("mistralai/Mistral-7B-v0.1", device="cuda")
+generator = outlines.generate.cfg(model, arithmetic_grammar)
+sequence = generator("Write a formula that returns 5 using only additions and subtractions.")
+
+generated_response = response.choices[0].message.content
+print(generated_response)
+sys.exit()
 
 class ThreadedGenerator:
     def __init__(self):
@@ -99,9 +108,6 @@ class ChainStreamHandler(FinalStreamingStdOutCallbackHandler):
 
     def on_llm_new_token(self, token: str, **kwargs):
         # Remember the last n tokens, where n = len(answer_prefix_tokens)
-        #self.gen.send(token)
-        #self.append_to_last_tokens(token)
-    
         if not self.startDone:
            self.gen.send(token)
            self.startDone = '.' in token
@@ -110,34 +116,17 @@ class ChainStreamHandler(FinalStreamingStdOutCallbackHandler):
            self.gen.send("\n\n")
            self.gapSent = True
         
-        # Check if the last n tokens match the answer_prefix_tokens list ...
-        #if self.check_if_answer_reached():
-        #    if self.stream_prefix:
-        #        for t in self.last_tokens:
-        #            self.gen.send(t)
-        #    self.answer_reached = True
-        #    return
-
-        # ... if yes, then print tokens from now on
-        #if self.answer_reached:
-        #    self.gen.send(token)
-
 def llm_thread(g, userText, chat_history):
     complete_response = ''
     try:
-        prompt = CUSTOM_PROMPT.format(input=userText,chat_history=str(chat_history))
+        prompt = CUSTOM_PROMPT.format(input=userText,one_shot_one=docs_and_scores[0][0], one_shot_two=docs_and_scores[1][0])
 
-        agent = create_sql_agent(
-        llm=ChatOpenAI(model_name="gpt-4", temperature=0.0, streaming=True, callbacks=[ChainStreamHandler(g)], max_tokens=500),
-        toolkit=toolkit,
-        verbose=False,
-        agent_type=AgentType.OPENAI_FUNCTIONS,
-        top_k=1000,
-        extra_tools=custom_tool_list,
-        suffix=custom_suffix,
-        return_intermediate_steps=False,
-        handle_parsing_errors=True
-        )
+        # start by just trying for a sql agent
+        #sql_agent = ChatOpenAI(model_name="gpt-4", temperature=0.0, streaming=True, max_tokens=500)
+        sql_agent = openai.ChatCompletion.create(**kwargs)
+        
+        #  
+        #interpreting_agent = ChatOpenAI(model_name="gpt-4", temperature=0.0, streaming=True, callbacks=[ChainStreamHandler(g)], max_tokens=500)
 
         # Assuming ChainStreamHandler sends tokens or chunks of response to the generator
         for response_chunk in agent.run(input=prompt):
@@ -181,5 +170,5 @@ def stream():
         resp.headers['X-Accel-Buffering'] = 'no'
         return resp
 
-if __name__ == '__main__':
-    app.run(debug=True)
+#if __name__ == '__main__':
+#    app.run(debug=True)
