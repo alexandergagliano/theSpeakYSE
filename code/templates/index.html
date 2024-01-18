@@ -280,6 +280,8 @@ function clearChatUI() {
     const userMessages = document.querySelectorAll('.message.user');
     const aiMessages = document.querySelectorAll('.message.bot');
 
+    $("#sendButton").removeClass('loading');
+    $("#statusText").hide();
 
     // Loop through the NodeList and remove each element
     userMessages.forEach(function(message) {
@@ -290,7 +292,7 @@ function clearChatUI() {
     });
 
     // AJAX request to Flask route
-    fetch('/reset-chat', {
+    fetch('/reset_chat', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

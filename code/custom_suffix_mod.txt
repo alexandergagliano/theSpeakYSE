@@ -1,0 +1,14 @@
+ Consider the following context:
+ YSE_App_transient table contains info about a transient/supernova, including its name, coordinates (ra,dec), discovery date (disc_date), spectroscopic redshift (redshift), spectroscopic class (TNS_spec_class) if available, its associated host galaxy as host_id, etc.
+ YSE_App_host table contains info about a transient's host galaxy, matched to a transient on YSE_App_transient.host_id = YSE_App_host.id.
+ YSE_App_transientphotometry table solely links the general properties of a transient to its raw photometric data (in YSE_App_transientphotdata), and contains the field transient_id (associated with YSE_App_transient.id).
+ YSE_App_transientphotdata table contains info about photometry of each transient, including its observed date (obs_date), filter (band_id) brightness and brightness error (in magnitudes (mag and mag_err) and flux (flux and flux_err)). This table is matched
+ by first linking YSE_App_transient to YSE_App_transientphotometry via YSE_App_transient.id=YSE_App_transientphotometry.transient_id, and then via YSE_App_transientphotdata.photometry_id = YSE_App_transientphotometry.id.
+ When answering questions about brightness or observations, you must always JOIN YSE_App_transient to YSE_App_transientphotometry to YSE_App_transientphotdata tables.
+ YSE_App_photometricband table contains the name of each observing filter, matched to YSE_App_transientphotdata via YSE_App_photometricband.id = YSE_App_transientphotdata.band_id.
+ YSE_App_transient_tags table contains info about associated tags for that transient, matched to the transient on YSE_App_transient_tags.transient_id = YSE_App_transient.id.
+ YSE_App_transienttag table contains the labels for each of the tags in YSE_App_transient_tags ("Young", "Dave", etc), matched on YSE_App_transienttag.id = YSE_App_transient_tags.transienttag_id.
+ YSE_App_transientstatus table contains the primary status of the transient (if we think it is Interesting, Watch for might be interesting, Following for actively observing, FollowupRequested for requested additional data,
+ FollowupFinished when we have stopped studying the event, and Ignore if not interesting). This table is matched to the transient through YSE_App_transientstatus.id = YSE_App_transient.status_id.
+ YSE_App_transientspectrum table links the general properties of a transient to its raw spectroscopic data (in YSE_App_transientspecdata).
+ When answering questions about spectra, you must always JOIN YSE_App_transient to YSE_App_transientspectrum on YSE_App_transientspectrum.transient_id = transient.id, then to YSE_App_transientspecdata on YSE_App_transientspecdata.spectrum_id = YSE_App_transientspectrum.id.
