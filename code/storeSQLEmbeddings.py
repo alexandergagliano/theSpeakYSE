@@ -61,6 +61,8 @@ few_shots = {
 
 "Return the properties of all stripped envelope supernovae (SESNe) discovered in the last 2 years.":"SELECT t.* FROM YSE_App_transient t AND DATEDIFF(curdate(),t.disc_date) < 730 AND t.TNS_spec_class IN ('SN Ic', 'SN Ibc', 'SN Ib', 'SN IIb');",
 
+"How many transients in the database are stripped-envelope supernovae?":"SELECT COUNT(DISTINCT t.name) from YSE_App_transient t WHERE t.TNS_spec_class IN ('SN Ic', 'SN Ibc', 'SN Ib', 'SN IIb');",
+
 "Get all photometry for the transient SN 2019ehk.":"SELECT DISTINCT pd.obs_date AS `observed_date`, TO_DAYS(pd.obs_date) AS `count_date`, pb.name AS `filter`, pd.mag, pd.mag_err,t.mw_ebv, pd.forced FROM YSE_App_transient t INNER JOIN YSE_App_transientphotometry tp ON tp.transient_id = t.id INNER JOIN YSE_App_transientphotdata pd ON pd.photometry_id = tp.id INNER JOIN YSE_App_photometricband pb ON pb.id = pd.band_id WHERE t.name LIKE '2019ehk';",
 
 "Which supernovae have photometry in the database?":"SELECT DISTINCT t.name FROM YSE_App_transient t INNER JOIN YSE_App_transientphotometry tp ON tp.transient_id = t.id INNER JOIN YSE_App_transientphotdata pd ON pd.photometry_id = tp.id;",
@@ -200,7 +202,7 @@ few_shots = {
   		WHERE s.field_id = '253.F') + 1.65 AND
 		t.dec > (SELECT s.dec_cen FROM YSE_App_surveyfield s
   		WHERE s.field_id = '253.F') - 1.65 AND t.dec < (SELECT s.dec_cen FROM YSE_App_surveyfield s
-  		WHERE s.field_id = '253.F') + 1.65))
+  		WHERE s.field_id = '253.F') + 1.65));
         """,
 
 "When does Brout's DECam program end?":"SELECT DISTINCT pi.name, cr.end_date_valid FROM YSE_App_principalinvestigator pi INNER JOIN YSE_App_classicalresource cr ON cr.principal_investigator_id = pi.id INNER JOIN YSE_App_instrument i ON  i.telescope_id= cr.telescope_id WHERE i.name LIKE 'DECam' AND TO_DAYS(cr.end_date_valid) > TO_DAYS(CURDATE());",

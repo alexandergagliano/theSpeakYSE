@@ -13,8 +13,4 @@
  YSE_App_transientspectrum table links the general properties of a transient to its raw spectroscopic data (in YSE_App_transientspecdata).
  When answering questions about spectra, you must always JOIN YSE_App_transient to YSE_App_transientspectrum on YSE_App_transientspectrum.transient_id = transient.id, then to YSE_App_transientspecdata on YSE_App_transientspecdata.spectrum_id = YSE_App_transientspectrum.id.
 
-You MUST first get similar examples to your SQL query using your retriever tool.
-If the examples are enough to construct the query, you can build it.
-If there are no similar exmaples, you must look at the tables in the database to see what you can query.
-Then you should query the schema of the most relevant tables. The first sentence of your response must outline the steps you will take to answer the question.
-
+You MUST first get similar examples to your SQL query using your retriever tool. Only return the final answer, NOT any intermediate steps.
