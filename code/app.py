@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context, stream_template, session
+test!
 import subprocess
 import traceback
 from langchain.llms import OpenAI
@@ -132,14 +133,14 @@ retriever_tool = create_retriever_tool(
 
 
 # switching to a HuggingFace-hosted open-source Mistral model to conduct the queries for now
-#toolkit = SQLDatabaseToolkit(db=db, llm=ChatOpenAI(model_name="gpt-4", temperature=0.2))
+toolkit = SQLDatabaseToolkit(db=db, llm=ChatOpenAI(model_name="gpt-4", temperature=0.2))
 repo_id = 'machinists/Mistral-7B-Instruct-SQL'
 mistral_sql_llm = HuggingFaceHub(
     repo_id=repo_id, model_kwargs={"temperature": 0.2, "max_length": 100}
 )
 
 # define the SQL agent, and the embedding retrieval tool
-toolkit = SQLDatabaseToolkit(db=db, llm=mistral_sql_llm)
+#toolkit = SQLDatabaseToolkit(db=db, llm=mistral_sql_llm)
 custom_tool_list = [retriever_tool]
 
 # add description of YSE-PZ tables to model prompt
